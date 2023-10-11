@@ -66,8 +66,8 @@ class System:
         if x0 is not None:
             self.x0 = x0
         else:
-            self.x0 = np.zeros((8,1))
-
+            self.x0 = np.zeros((self.n_x,1))
+        
         self._x = []
         self._u = []
         self._y = []
