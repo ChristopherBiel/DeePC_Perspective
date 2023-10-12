@@ -17,7 +17,7 @@ class System:
 
     Query stored results with methods u, y, x.
     """
-    def __init__(self,A,B,C,D=None, x0=None, dt=1):
+    def __init__(self,A,B,C,D=None, x0=None, dt=1, nonlinfunc=None):
         self.A = A
         self.B = B
         self.C = C
@@ -25,6 +25,8 @@ class System:
         self.n_x = A.shape[0]
         self.n_u = B.shape[1]
         self.n_y = C.shape[0]
+
+        self.nonlinfunc = nonlinfunc
 
         if D is None:
             D = np.zeros((self.n_y, self.n_u))
@@ -42,6 +44,31 @@ class System:
         self.dt = dt
         self.t_now = 0
         self._time = []
+
+    def setNonlinearFunction(self, fnc):
+        """
+        Set the nonlinear function for the nonlinear step
+        """
+        self.nonlinfunc = fnc
+
+    def makeNonlinearStep(self, u):
+        """
+        Run a simulation step with the nonlinear function.
+        The measurement is still calculated linearly from the state.
+        Returns the current measurement y.
+        """
+
+        self._x.append(self.x0)
+        self._u.append(u)
+        y = self.C@self.x0+self.D@u
+        self._y.append(y)
+        self._time.append(self.t_now)
+
+        self.x0 = self.nonlinfunc(self.x0, u)
+
+        self.t_now += self.dt
+
+        return y
 
 
     def make_step(self,u):

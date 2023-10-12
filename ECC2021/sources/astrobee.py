@@ -38,6 +38,12 @@ class Astrobee(object):
         self.mass = mass
         self.inertia = inertia
 
+        # Set CasADi functions
+        self.set_casadi_options()
+
+        # Set nonlinear model with a RK4 integrator
+        self.model = self.rk4_integrator(self.nonlinear_model)
+
         # Linearized model for continuous and discrete time
         self.Ac = None
         self.Bc = None
@@ -84,12 +90,36 @@ class Astrobee(object):
         pdot = v
         vdot = ca.mtimes(r_mat(e), f) / self.mass
         edot = ca.mtimes(rot_jac_mat(e), w)
-        wdot = ca.mtimes(ca.inv(self.inertia), tau + ca.mtimes(skew(w),
+        wdot = ca.mtimes(ca.inv(self.inertia), tau - ca.mtimes(skew(w),
                          ca.mtimes(self.inertia, w)))
 
         dxdt = [pdot, vdot, edot, wdot]
 
         return ca.vertcat(*dxdt)
+    
+    def rk4_integrator(self, dynamics):
+        """
+        Runge-Kutta 4th Order discretization.
+        :param x: state
+        :type x: ca.MX
+        :param u: control input
+        :type u: ca.MX
+        :return: state at next step
+        :rtype: ca.MX
+        """
+        x0 = ca.MX.sym('x0', self.n, 1)
+        u = ca.MX.sym('u', self.m, 1)
+        x = x0
+
+        k1 = dynamics(x, u)
+        k2 = dynamics(x + self.dt / 2 * k1, u)
+        k3 = dynamics(x + self.dt / 2 * k2, u)
+        k4 = dynamics(x + self.dt * k3, u)
+        xdot = x0 + self.dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+
+        rk4 = ca.Function('RK4', [x0, u], [xdot], self.fun_options)
+
+        return rk4
 
     def create_linearized_dynamics(self):
         """
